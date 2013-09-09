@@ -1,0 +1,10 @@
+{
+  "name": "ng-tags-input",
+  "version": "0.1.2",
+  "location": "https://github.com/mbenford/ngTagsInput-bower",
+  "main": ["ng-tags-input.min.js", "ng-tags-input.min.css"],
+  "description": "Tags input for AngularJS",
+  "dependencies": {
+    "angular": "~1.0.5"
+  }
+}
