@@ -1,6 +1,19 @@
 (function() {
 'use strict';
 
+var KEYS = {
+    backspace: 8,
+    tab: 9,
+    enter: 13,
+    escape: 27,
+    space: 32,
+    up: 38,
+    down: 40,
+    comma: 188
+};
+
+angular.module('tags-input', []);
+
 /**
  * @ngdoc directive
  * @name tagsInput.directive:tagsInput
@@ -23,9 +36,10 @@
  * @param {boolean=false} enableEditingLastTag Flag indicating that the last tag will be moved back into
  *                                             the new tag input box instead of being removed when the backspace key
  *                                             is pressed and the input box is empty.
+ * @param {expression} onTagAdded Expression to evaluate upon adding a new tag. The new tag is available as $tag.
+ * @param {expression} onTagRemoved Expression to evaluate upon removing an existing tag. The removed tag is available as $tag.
  */
-
-angular.module('tags-input', []).directive('tagsInput', function($interpolate) {
+angular.module('tags-input').directive('tagsInput', ["$interpolate", function($interpolate) {
     function loadOptions(scope, attrs) {
         function getStr(name, defaultValue) {
             return attrs[name] ? $interpolate(attrs[name])(scope.$parent) : defaultValue;
@@ -57,25 +71,58 @@ angular.module('tags-input', []).directive('tagsInput', function($interpolate) {
         };
     }
 
+    function SimplePubSub() {
+        var events = {};
+
+        return {
+            on: function(name, handler) {
+                if (!events[name]) {
+                    events[name] = [];
+                }
+                events[name].push(handler);
+            },
+            trigger: function(name, args) {
+                angular.forEach(events[name], function(handler) {
+                   handler(args);
+                });
+            }
+        };
+    }
+
     return {
         restrict: 'A,E',
-        scope: { tags: '=ngModel' },
+        scope: { tags: '=ngModel', onTagAdded: '&', onTagRemoved: '&' },
         replace: false,
-        template: '<div class="ngTagsInput {{ options.cssClass }}">' +
-                  '  <ul>' +
-                  '    <li ng-repeat="tag in tags" ng-class="getCssClass($index)">' +
-                  '      <span>{{ tag }}</span>' +
-                  '      <button type="button" ng-click="remove($index)">{{ options.removeTagSymbol }}</button>' +
-                  '    </li>' +
-                  '  </ul>' +
-                  '  <input type="text" placeholder="{{ options.placeholder }}" size="{{ options.placeholder.length }}" maxlength="{{ options.maxLength }}" tabindex="{{ options.tabindex }}" ng-model="newTag">' +
+        transclude: true,
+        template: '<div class="ngTagsInput {{ options.cssClass }}" ng-transclude>' +
+                  '  <div class="tags">' +
+                  '    <ul>' +
+                  '      <li ng-repeat="tag in tags" ng-class="getCssClass($index)">' +
+                  '        <span>{{ tag }}</span>' +
+                  '        <button type="button" ng-click="remove($index)">{{ options.removeTagSymbol }}</button>' +
+                  '      </li>' +
+                  '    </ul>' +
+                  '    <input type="text"' +
+                  '           placeholder="{{ options.placeholder }}"' +
+                  '           size="{{ options.placeholder.length }}"' +
+                  '           maxlength="{{ options.maxLength }}"' +
+                  '           tabindex="{{ options.tabindex }}"' +
+                  '           ng-model="newTag"' +
+                  '           ng-change="newTagChange()">' +
+                  '  </div>' +
                   '</div>',
-        controller: function($scope, $attrs) {
+        controller: ["$scope","$attrs","$element", function($scope, $attrs, $element) {
+            var shouldRemoveLastTag,
+                events = new SimplePubSub();
+
             loadOptions($scope, $attrs);
+
+            events.on('tag-added', $scope.onTagAdded);
+            events.on('tag-removed', $scope.onTagRemoved);
 
             $scope.newTag = '';
             $scope.tags = $scope.tags || [];
-
+            
             $scope.tryAdd = function() {
                 var changed = false;
                 var tag = $scope.newTag;
@@ -88,6 +135,8 @@ angular.module('tags-input', []).directive('tagsInput', function($interpolate) {
 
                     if ($scope.tags.indexOf(tag) === -1) {
                         $scope.tags.push(tag);
+
+                        events.trigger('tag-added', { $tag: tag });
                     }
 
                     $scope.newTag = '';
@@ -98,18 +147,19 @@ angular.module('tags-input', []).directive('tagsInput', function($interpolate) {
 
             $scope.tryRemoveLast = function() {
                 var changed = false;
+
                 if ($scope.tags.length > 0) {
                     if ($scope.options.enableEditingLastTag) {
-                        $scope.newTag = $scope.tags.pop();
+                        $scope.newTag = $scope.remove($scope.tags.length - 1);
                     }
                     else {
-                        if ($scope.shouldRemoveLastTag) {
-                            $scope.tags.pop();
+                        if (shouldRemoveLastTag) {
+                            $scope.remove($scope.tags.length - 1);
 
-                            $scope.shouldRemoveLastTag = false;
+                            shouldRemoveLastTag = false;
                         }
                         else {
-                            $scope.shouldRemoveLastTag = true;
+                            shouldRemoveLastTag = true;
                         }
                     }
                     changed = true;
@@ -118,46 +168,247 @@ angular.module('tags-input', []).directive('tagsInput', function($interpolate) {
             };
 
             $scope.remove = function(index) {
-                $scope.tags.splice(index, 1);
+                var removedTag = $scope.tags.splice(index, 1)[0];
+                events.trigger('tag-removed', { $tag: removedTag });
+                return removedTag;
             };
 
             $scope.getCssClass = function(index) {
                 var isLastTag = index === $scope.tags.length - 1;
-                return $scope.shouldRemoveLastTag && isLastTag ? 'selected' : '';
+                return shouldRemoveLastTag && isLastTag ? 'selected' : '';
             };
 
             $scope.$watch(function() { return $scope.newTag.length > 0; }, function() {
-                $scope.shouldRemoveLastTag = false;
+                shouldRemoveLastTag = false;
             });
 
-        },
+            $scope.newTagChange = angular.noop;
+
+            this.registerAutocomplete = function() {
+                var input = $element.find('input');
+                input.changeValue = function(value) {
+                    $scope.newTag = value;
+                };
+
+                input.change = function(handler) {
+                    $scope.newTagChange = function() {
+                        handler($scope.newTag);
+                    };
+                };
+
+                return {
+                    input: input,
+                    events: events
+                };
+            };
+        }],
         link: function(scope, element) {
-            var ENTER = 13, COMMA = 188, SPACE = 32, BACKSPACE = 8;
+            var hotkeys = [KEYS.enter, KEYS.comma, KEYS.space, KEYS.backspace];
+            var input = element.find('input');
 
-            element.find('input')
-                .bind('keydown', function(e) {
-                    if (e.keyCode === ENTER && scope.options.addOnEnter ||
-                        e.keyCode === COMMA && scope.options.addOnComma ||
-                        e.keyCode === SPACE && scope.options.addOnSpace) {
+            input.bind('keydown', function(e) {
+                var key;
 
-                        if (scope.tryAdd()) {
-                            scope.$apply();
-                        }
+                // This hack is needed because jqLite doesn't implement stopImmediatePropagation properly.
+                // I've sent a PR to Angular addressing this issue and hopefully it'll be fixed soon.
+                // https://github.com/angular/angular.js/pull/4833
+                if (e.isImmediatePropagationStopped && e.isImmediatePropagationStopped()) {
+                    return;
+                }
+
+                if (hotkeys.indexOf(e.keyCode) === -1) {
+                    return;
+                }
+
+                key = e.keyCode;
+
+                if (key === KEYS.enter && scope.options.addOnEnter ||
+                    key === KEYS.comma && scope.options.addOnComma ||
+                    key === KEYS.space && scope.options.addOnSpace) {
+
+                    if (scope.tryAdd()) {
+                        scope.$apply();
+                    }
+                    e.preventDefault();
+                }
+                else if (key === KEYS.backspace && this.value.length === 0) {
+                    if (scope.tryRemoveLast()) {
+                        scope.$apply();
+
                         e.preventDefault();
                     }
-                    else if (e.keyCode === BACKSPACE && this.value.length === 0) {
-                        if (scope.tryRemoveLast()) {
-                            scope.$apply();
-
-                            e.preventDefault();
-                        }
-                    }
-                });
+                }
+            });
 
             element.find('div').bind('click', function() {
-                element.find('input')[0].focus();
+                input[0].focus();
             });
         }
     };
-});
+}]);
+
+/**
+ * @ngdoc directive
+ * @name tagsInput.directive:autocomplete
+ *
+ * @description
+ * Provides autocomplete support for the tagsInput directive.
+ *
+ * @param {expression} source Callback that will be called for every keystroke and will be provided with the current
+ *                            input's value. Must return a promise.
+ */
+angular.module('tags-input').directive('autocomplete', ["$document", function($document) {
+    function SuggestionList(loadFn) {
+        var self = {};
+
+        self.reset = function() {
+            self.items = [];
+            self.visible = false;
+            self.index = -1;
+            self.selected = null;
+        };
+        self.show = function() {
+            self.selected = null;
+            self.visible = true;
+        };
+        self.hide = function() {
+            self.visible = false;
+        };
+        self.load = function(text) {
+            if (self.selected === text) {
+                return;
+            }
+
+            loadFn(text).then(function(items) {
+                self.items = items;
+                if (items.length > 0) {
+                    self.show();
+                }
+            });
+        };
+        self.selectNext = function() {
+            self.select(++self.index);
+        };
+        self.selectPrior = function() {
+            self.select(--self.index);
+        };
+        self.select = function(index) {
+            if (index < 0) {
+                index = self.items.length - 1;
+            }
+            else if (index >= self.items.length) {
+                index = 0;
+            }
+            self.index = index;
+            self.selected = self.items[index];
+        };
+
+        self.reset();
+
+        return self;
+    }
+
+    return {
+        restrict: 'A,E',
+        require: '?^tagsInput',
+        scope: { source: '&' },
+        template: '<div class="autocomplete" ng-show="suggestionList.visible">' +
+                  '  <ul class="suggestions">' +
+                  '    <li class="suggestion" ng-repeat="item in suggestionList.items"' +
+                  '                           ng-class="{selected: item == suggestionList.selected}"' +
+                  '                           ng-click="addSuggestion()"' +
+                  '                           ng-mouseenter="suggestionList.select($index)">{{ item }}</li>' +
+                  '  </ul>' +
+                  '</div>',
+        link: function(scope, element, attrs, tagsInputCtrl) {
+            var hotkeys = [KEYS.enter, KEYS.tab, KEYS.escape, KEYS.up, KEYS.down],
+                suggestionList = new SuggestionList(scope.source()),
+
+                tagsInput = tagsInputCtrl.registerAutocomplete(),
+                input = tagsInput.input;
+
+            scope.suggestionList = suggestionList;
+
+            scope.addSuggestion = function() {
+                var added = false;
+
+                if (suggestionList.selected) {
+                    input.changeValue(suggestionList.selected);
+                    suggestionList.reset();
+                    input[0].focus();
+
+                    added = true;
+                }
+                return added;
+            };
+
+            input.change(function(value) {
+                if (value) {
+                    suggestionList.load(value);
+                } else {
+                    suggestionList.reset();
+                }
+            });
+
+            input.bind('keydown', function(e) {
+                var key, handled;
+
+                if (hotkeys.indexOf(e.keyCode) === -1) {
+                    return;
+                }
+
+                // This hack is needed because jqLite doesn't implement stopImmediatePropagation properly.
+                // I've sent a PR to Angular addressing this issue and hopefully it'll be fixed soon.
+                // https://github.com/angular/angular.js/pull/4833
+                var immediatePropagationStopped = false;
+                e.stopImmediatePropagation = function() {
+                    immediatePropagationStopped = true;
+                    e.stopPropagation();
+                };
+                e.isImmediatePropagationStopped = function() {
+                    return immediatePropagationStopped;
+                };
+
+                if (suggestionList.visible) {
+                    key = e.keyCode;
+                    handled = false;
+
+                    if (key === KEYS.down) {
+                        suggestionList.selectNext();
+                        handled = true;
+                    }
+                    else if (key === KEYS.up) {
+                        suggestionList.selectPrior();
+                        handled = true;
+                    }
+                    else if (key === KEYS.escape) {
+                        suggestionList.reset();
+                        handled = true;
+                    }
+                    else if (key === KEYS.enter || key === KEYS.tab) {
+                        handled = scope.addSuggestion();
+                    }
+
+                    if (handled) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        scope.$apply();
+                    }
+                }
+            });
+
+            $document.bind('click', function() {
+                if (suggestionList.visible) {
+                    suggestionList.reset();
+                    scope.$apply();
+                }
+            });
+
+            tagsInput.events.on('tag-added', function() {
+                suggestionList.reset();
+            });
+        }
+    };
+}]);
+
 }());
