@@ -7,6 +7,10 @@
     position: relative;
 }
 
+.ngTagsInput:active {
+    outline: none;
+}
+
 .ngTagsInput .tags {
     -moz-appearance: textfield;
     -webkit-appearance: textfield;
@@ -20,6 +24,13 @@
     overflow-x: hidden;
     word-wrap: break-word;
     font-size: 14px;
+}
+
+.ngTagsInput .tags.focused {
+    outline: none;
+    -webkit-box-shadow: 0px 0px 3px 1px rgba(5,139,242,0.6);
+    -moz-box-shadow: 0px 0px 3px 1px rgba(5,139,242,0.6);
+    box-shadow: 0px 0px 3px 1px rgba(5,139,242,0.6);
 }
 
 .ngTagsInput .tags ul {
@@ -59,7 +70,7 @@
 }
 
 .ngTagsInput .tags span {
-    font: 13px Arial, sans-serif;
+    font: 13px "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .ngTagsInput .tags button {
@@ -83,7 +94,7 @@
     padding: 0px 0px 0px 4px;
     height: 21px;
     float: left;
-    font: 13px Arial, sans-serif;
+    font: 13px "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .ngTagsInput .tags input::-ms-clear {
@@ -102,17 +113,17 @@
     z-index: 999;
 }
 
-.ngTagsInput .autocomplete ul.suggestions {
+.ngTagsInput .autocomplete ul {
     margin: 0;
     padding: 0;
     list-style-type: none;
 }
 
-.ngTagsInput .autocomplete li.suggestion {
-    padding: 3px 20px;
-    font-family: Arial, sans-serif;
-    font-size: 18px;
-    line-height: 22px;
+.ngTagsInput .autocomplete li {
+    padding: 3px 16px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 20px;
     cursor: pointer;
     text-align: left;
     white-space: nowrap;
@@ -123,4 +134,9 @@
 .ngTagsInput .autocomplete li.selected {
     color: #fff;
     background-color: #0097cf
+}
+
+.ngTagsInput .autocomplete li em {
+    font-weight: bold;
+    font-style: normal;
 }
