@@ -189,8 +189,6 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig", func
 
             input
                 .on('keydown', function(e) {
-                    var key;
-
                     // This hack is needed because jqLite doesn't implement stopImmediatePropagation properly.
                     // I've sent a PR to Angular addressing this issue and hopefully it'll be fixed soon.
                     // https://github.com/angular/angular.js/pull/4833
@@ -198,11 +196,12 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig", func
                         return;
                     }
 
-                    if (hotkeys.indexOf(e.keyCode) === -1) {
+                    var key = e.keyCode,
+                        isModifier = e.shiftKey || e.altKey || e.ctrlKey || e.metaKey;
+
+                    if (isModifier || hotkeys.indexOf(key) === -1) {
                         return;
                     }
-
-                    key = e.keyCode;
 
                     if (key === KEYS.enter && scope.options.addOnEnter ||
                         key === KEYS.comma && scope.options.addOnComma ||
@@ -268,7 +267,7 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig", func
  */
 tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputConfig", function($document, $timeout, $sce, tagsInputConfig) {
     function SuggestionList(loadFn, options) {
-        var self = {}, debouncedLoadId, getDifference;
+        var self = {}, debouncedLoadId, getDifference, lastPromise;
 
         getDifference = function(array1, array2) {
             var result = [];
@@ -283,6 +282,8 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
         };
 
         self.reset = function() {
+            lastPromise = null;
+
             self.items = [];
             self.visible = false;
             self.index = -1;
@@ -307,7 +308,15 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
             $timeout.cancel(debouncedLoadId);
             debouncedLoadId = $timeout(function() {
                 self.query = query;
-                loadFn({ $query: query }).then(function(items) {
+
+                var promise = loadFn({ $query: query });
+                lastPromise = promise;
+
+                promise.then(function(items) {
+                    if (promise !== lastPromise) {
+                        return;
+                    }
+
                     self.items = getDifference(items, tags);
                     if (self.items.length > 0) {
                         self.show();
@@ -337,6 +346,12 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
         return self;
     }
 
+    function encodeHTML(value) {
+        return value.replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+    }
+
     return {
         restrict: 'E',
         require: '?^tagsInput',
@@ -344,7 +359,7 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
         templateUrl: 'ngTagsInput/auto-complete.html',
         link: function(scope, element, attrs, tagsInputCtrl) {
             var hotkeys = [KEYS.enter, KEYS.tab, KEYS.escape, KEYS.up, KEYS.down],
-                suggestionList, tagsInput, highlight;
+                suggestionList, tagsInput, markdown;
 
             tagsInputConfig.load(scope, attrs, {
                 debounceDelay: { type: Number, defaultValue: 100 },
@@ -357,13 +372,13 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
             suggestionList = new SuggestionList(scope.source, scope.options);
 
             if (scope.options.highlightMatchedText) {
-                highlight = function(item, text) {
+                markdown = function(item, text) {
                     var expression = new RegExp(text, 'gi');
-                    return item.replace(expression, '<em>$&</em>');
+                    return item.replace(expression, '**$&**');
                 };
             }
             else {
-                highlight = function(item) {
+                markdown = function(item) {
                     return item;
                 };
             }
@@ -384,7 +399,10 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
             };
 
             scope.highlight = function(item) {
-                return $sce.trustAsHtml(highlight(item, suggestionList.query));
+                item = markdown(item, suggestionList.query);
+                item = encodeHTML(item);
+                item = item.replace(/\*\*(.+?)\*\*/g, '<em>$1</em>');
+                return $sce.trustAsHtml(item);
             };
 
             tagsInput
