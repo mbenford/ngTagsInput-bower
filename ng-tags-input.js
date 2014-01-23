@@ -1,11 +1,11 @@
 /*!
- * ngTagsInput v1.1.0
+ * ngTagsInput v1.1.1
  * http://mbenford.github.io/ngTagsInput
  *
  * Copyright (c) 2013-2014 Michael Benford
  * License: MIT
  *
- * Generated at 2014-01-14 02:33:59 -0200
+ * Generated at 2014-01-23 01:16:35 -0200
  */
 (function() {
 'use strict';
@@ -127,7 +127,7 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig", func
                     }
 
                     $scope.newTag = '';
-                    $scope.events.trigger('input-changed', '');
+                    $scope.events.trigger('input-change', '');
                     changed = true;
                 }
                 return changed;
