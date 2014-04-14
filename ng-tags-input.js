@@ -1,11 +1,11 @@
 /*!
- * ngTagsInput v2.0.0
+ * ngTagsInput v2.0.1
  * http://mbenford.github.io/ngTagsInput
  *
  * Copyright (c) 2013-2014 Michael Benford
  * License: MIT
  *
- * Generated at 2014-03-26 01:52:40 -0300
+ * Generated at 2014-04-13 21:25:38 -0300
  */
 (function() {
 'use strict';
@@ -66,11 +66,17 @@ function findInObjectArray(array, obj, key) {
     return item;
 }
 
+function replaceAll(str, substr, newSubstr) {
+    var expression = substr.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+    return str.replace(new RegExp(expression, 'gi'), newSubstr);
+}
+
 var tagsInput = angular.module('ngTagsInput', []);
 
 /**
  * @ngdoc directive
- * @name tagsInput.directive:tagsInput
+ * @name tagsInput
+ * @module ngTagsInput
  *
  * @description
  * Renders an input box with tag editing support.
@@ -91,7 +97,7 @@ var tagsInput = angular.module('ngTagsInput', []);
  * @param {boolean=} [addOnComma=true] Flag indicating that a new tag will be added on pressing the COMMA key.
  * @param {boolean=} [addOnBlur=true] Flag indicating that a new tag will be added when the input field loses focus.
  * @param {boolean=} [replaceSpacesWithDashes=true] Flag indicating that spaces will be replaced with dashes.
- * @param {string=} [allowedTagsPattern=^&#91;a-zA-Z0-9\s&#93;+$] Regular expression that determines whether a new tag is valid.
+ * @param {string=} [allowedTagsPattern=.+] Regular expression that determines whether a new tag is valid.
  * @param {boolean=} [enableEditingLastTag=false] Flag indicating that the last tag will be moved back into
  *                                                the new tag input box instead of being removed when the backspace key
  *                                                is pressed and the input box is empty.
@@ -366,7 +372,8 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig", func
 
 /**
  * @ngdoc directive
- * @name tagsInput.directive:autoComplete
+ * @name autoComplete
+ * @module ngTagsInput
  *
  * @description
  * Provides autocomplete support for the tagsInput directive.
@@ -426,7 +433,9 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
                     }
 
                     items = makeObjectArray(items.data || items, options.tagsInput.displayProperty);
-                    self.items = getDifference(items, tags);
+                    items = getDifference(items, tags);
+                    self.items = items.slice(0, options.maxResultsToShow);
+
                     if (self.items.length > 0) {
                         self.show();
                     }
@@ -471,7 +480,7 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
         templateUrl: 'ngTagsInput/auto-complete.html',
         link: function(scope, element, attrs, tagsInputCtrl) {
             var hotkeys = [KEYS.enter, KEYS.tab, KEYS.escape, KEYS.up, KEYS.down],
-                suggestionList, tagsInput, options, getItemText, markdown;
+                suggestionList, tagsInput, options, getItemText, documentClick;
 
             tagsInputConfig.load('autoComplete', scope, attrs, {
                 debounceDelay: [Number, 100],
@@ -491,18 +500,6 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
                 return item[options.tagsInput.displayProperty];
             };
 
-            if (options.highlightMatchedText) {
-                markdown = function(item, text) {
-                    var expression = new RegExp(text, 'gi');
-                    return item.replace(expression, '**$&**');
-                };
-            }
-            else {
-                markdown = function(item) {
-                    return item;
-                };
-            }
-
             scope.suggestionList = suggestionList;
 
             scope.addSuggestion = function() {
@@ -520,9 +517,10 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
 
             scope.highlight = function(item) {
                 var text = getItemText(item);
-                text = markdown(text, suggestionList.query);
                 text = encodeHTML(text);
-                text = text.replace(/\*\*(.+?)\*\*/g, '<em>$1</em>');
+                if (options.highlightMatchedText) {
+                    text = replaceAll(text, encodeHTML(suggestionList.query), '<em>$&</em>');
+                }
                 return $sce.trustAsHtml(text);
             };
 
@@ -591,11 +589,17 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
                     suggestionList.reset();
                 });
 
-            $document.on('click', function() {
+            documentClick = function() {
                 if (suggestionList.visible) {
                     suggestionList.reset();
                     scope.$apply();
                 }
+            };
+
+            $document.on('click', documentClick);
+
+            scope.$on('$destroy', function() {
+                $document.off('click', documentClick);
             });
         }
     };
@@ -603,7 +607,8 @@ tagsInput.directive('autoComplete', ["$document","$timeout","$sce","tagsInputCon
 
 /**
  * @ngdoc directive
- * @name tagsInput.directive:tiTranscludeAppend
+ * @name tiTranscludeAppend
+ * @module ngTagsInput
  *
  * @description
  * Re-creates the old behavior of ng-transclude. Used internally by tagsInput directive.
@@ -618,7 +623,8 @@ tagsInput.directive('tiTranscludeAppend', function() {
 
 /**
  * @ngdoc directive
- * @name tagsInput.directive:tiAutosize
+ * @name tiAutosize
+ * @module ngTagsInput
  *
  * @description
  * Automatically sets the input's width so its content is always visible. Used internally by tagsInput directive.
@@ -660,13 +666,20 @@ tagsInput.directive('tiAutosize', function() {
 
             ctrl.$parsers.unshift(resize);
             ctrl.$formatters.unshift(resize);
+
+            attrs.$observe('placeholder', function(value) {
+                if (!ctrl.$modelValue) {
+                    resize(value);
+                }
+            });
         }
     };
 });
 
 /**
  * @ngdoc service
- * @name tagsInput.service:tagsInputConfig
+ * @name tagsInputConfig
+ * @module ngTagsInput
  *
  * @description
  * Sets global configuration settings for both tagsInput and autoComplete directives. It's also used internally to parse and
@@ -679,7 +692,7 @@ tagsInput.provider('tagsInputConfig', function() {
      * @ngdoc method
      * @name setDefaults
      * @description Sets the default configuration option for a directive.
-     * @methodOf tagsInput.service:tagsInputConfig
+     * @methodOf tagsInputConfig
      *
      * @param {string} directive Name of the directive to be configured. Must be either 'tagsInput' or 'autoComplete'.
      * @param {object} defaults Object containing options and their values.
@@ -695,7 +708,7 @@ tagsInput.provider('tagsInputConfig', function() {
      * @ngdoc method
      * @name setActiveInterpolation
      * @description Sets active interpolation for a set of options.
-     * @methodOf tagsInput.service:tagsInputConfig
+     * @methodOf tagsInputConfig
      *
      * @param {string} directive Name of the directive to be configured. Must be either 'tagsInput' or 'autoComplete'.
      * @param {object} options Object containing which options should have interpolation turned on at all times.
@@ -756,7 +769,7 @@ tagsInput.run(["$templateCache", function($templateCache) {
   );
 
   $templateCache.put('ngTagsInput/auto-complete.html',
-    "<div class=\"autocomplete\" ng-show=\"suggestionList.visible\"><ul class=\"suggestion-list\"><li class=\"suggestion-item\" ng-repeat=\"item in suggestionList.items | limitTo:options.maxResultsToShow track by track(item)\" ng-class=\"{selected: item == suggestionList.selected}\" ng-click=\"addSuggestion()\" ng-mouseenter=\"suggestionList.select($index)\" ng-bind-html=\"highlight(item)\"></li></ul></div>"
+    "<div class=\"autocomplete\" ng-show=\"suggestionList.visible\"><ul class=\"suggestion-list\"><li class=\"suggestion-item\" ng-repeat=\"item in suggestionList.items track by track(item)\" ng-class=\"{selected: item == suggestionList.selected}\" ng-click=\"addSuggestion()\" ng-mouseenter=\"suggestionList.select($index)\" ng-bind-html=\"highlight(item)\"></li></ul></div>"
   );
 }]);
 
