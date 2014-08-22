@@ -1,13 +1,16 @@
-tags-input *, *:before, *:after {
+tags-input {
+  display: block;
+}
+tags-input *, tags-input *:before, tags-input *:after {
   -moz-box-sizing: border-box;
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
 }
-
 tags-input .host {
   position: relative;
   margin-top: 5px;
   margin-bottom: 5px;
+  height: 100%;
 }
 tags-input .host:active {
   outline: none;
@@ -23,6 +26,7 @@ tags-input .tags {
   background-color: white;
   border: 1px solid darkgray;
   box-shadow: 1px 1px 1px 0 lightgray inset;
+  height: 100%;
 }
 tags-input .tags.focused {
   outline: none;
