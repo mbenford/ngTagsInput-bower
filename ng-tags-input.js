@@ -356,7 +356,7 @@ tagsInput.directive('tagsInput', ["$timeout","$document","tagsInputConfig","tiUt
                 })
                 .on('input-paste', function(event) {
                     if (options.addOnPaste) {
-                        var data = event.clipboardData.getData('text/plain');
+                        var data = (event.originalEvent || event).clipboardData.getData('text/plain');
                         var tags = data.split(options.pasteSplitPattern);
                         if (tags.length > 1) {
                             tags.forEach(function(tag) {
