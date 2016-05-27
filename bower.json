@@ -1,7 +1,7 @@
 {
   "name": "ng-tags-input",
   "license": "MIT",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "location": "https://github.com/mbenford/ngTagsInput-bower",
   "homepage": "http://mbenford.github.io/ngTagsInput",
   "main": [
@@ -11,8 +11,8 @@
   "description": "Tags input directive for AngularJS",
   "ignore": [],
   "keywords": [
-    "angular", 
-    "tags", 
+    "angular",
+    "tags",
     "tags-input"
   ],
   "dependencies": {

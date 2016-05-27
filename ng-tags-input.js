@@ -1,11 +1,11 @@
 /*!
- * ngTagsInput v3.1.0
+ * ngTagsInput v3.1.1
  * http://mbenford.github.io/ngTagsInput
  *
  * Copyright (c) 2013-2016 Michael Benford
  * License: MIT
  *
- * Generated at 2016-05-26 20:24:51 -0300
+ * Generated at 2016-05-27 12:28:31 -0300
  */
 (function() {
 'use strict';
@@ -259,7 +259,7 @@ tagsInput.directive('tagsInput', ["$timeout", "$document", "$window", "$q", "tag
                         return $scope.templateScope;
                     },
                     on: function(name, handler) {
-                        $scope.events.on(name, handler);
+                        $scope.events.on(name, handler, true);
                         return this;
                     }
                 };
@@ -566,6 +566,10 @@ tagsInput.directive('tiTagItem', ["tiUtil", function(tiUtil) {
  *    gains focus. The current input value is available as $query.
  * @param {boolean=} [selectFirstMatch=true] Flag indicating that the first match will be automatically selected once
  *    the suggestion list is shown.
+ * @param {expression=} [matchClass=NA] Expression to evaluate for each match in order to get the CSS classes to be used.
+ *    The expression is provided with the current match as $match, its index as $index and its state as $selected. The result
+ *    of the evaluation must be one of the values supported by the ngClass directive (either a string, an array or an object).
+ *    See https://docs.angularjs.org/api/ng/directive/ngClass for more information.
  */
 tagsInput.directive('autoComplete', ["$document", "$timeout", "$sce", "$q", "tagsInputConfig", "tiUtil", function($document, $timeout, $sce, $q, tagsInputConfig, tiUtil) {
     function SuggestionList(loadFn, options, events) {
@@ -1155,12 +1159,13 @@ tagsInput.factory('tiUtil', ["$timeout", "$q", function($timeout, $q) {
     self.simplePubSub = function() {
         var events = {};
         return {
-            on: function(names, handler) {
+            on: function(names, handler, first) {
                 names.split(' ').forEach(function(name) {
                     if (!events[name]) {
                         events[name] = [];
                     }
-                    events[name].unshift(handler);
+                    var method = first ? [].unshift : [].push;
+                    method.call(events[name], handler);
                 });
                 return this;
             },
