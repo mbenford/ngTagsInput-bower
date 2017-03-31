@@ -1,11 +1,11 @@
 /*!
- * ngTagsInput v3.1.1
+ * ngTagsInput v3.1.2
  * http://mbenford.github.io/ngTagsInput
  *
- * Copyright (c) 2013-2016 Michael Benford
+ * Copyright (c) 2013-2017 Michael Benford
  * License: MIT
  *
- * Generated at 2016-05-27 12:28:31 -0300
+ * Generated at 2017-03-31 01:12:33 -0300
  */
 (function() {
 'use strict';
@@ -1108,6 +1108,9 @@ tagsInput.factory('tiUtil', ["$timeout", "$q", function($timeout, $q) {
     };
 
     self.safeHighlight = function(str, value) {
+        str = self.encodeHTML(str);
+        value = self.encodeHTML(value);
+
         if (!value) {
             return str;
         }
@@ -1115,9 +1118,6 @@ tagsInput.factory('tiUtil', ["$timeout", "$q", function($timeout, $q) {
         function escapeRegexChars(str) {
             return str.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
         }
-
-        str = self.encodeHTML(str);
-        value = self.encodeHTML(value);
 
         var expression = new RegExp('&[^;]+;|' + escapeRegexChars(value), 'gi');
         return str.replace(expression, function(match) {
@@ -1181,6 +1181,7 @@ tagsInput.factory('tiUtil', ["$timeout", "$q", function($timeout, $q) {
 
     return self;
 }]);
+
 
 /* HTML templates */
 tagsInput.run(["$templateCache", function($templateCache) {
