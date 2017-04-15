@@ -1,11 +1,11 @@
 /*!
- * ngTagsInput v3.1.2
+ * ngTagsInput v3.2.0
  * http://mbenford.github.io/ngTagsInput
  *
  * Copyright (c) 2013-2017 Michael Benford
  * License: MIT
  *
- * Generated at 2017-03-31 01:12:33 -0300
+ * Generated at 2017-04-15 17:08:51 -0300
  */
 (function() {
 'use strict';
@@ -38,6 +38,7 @@ var tagsInput = angular.module('ngTagsInput', []);
  * Renders an input box with tag editing support.
  *
  * @param {string} ngModel Assignable Angular expression to data-bind to.
+ * @param {boolean=} [useStrings=false] Flag indicating that the model is an array of strings (EXPERIMENTAL).
  * @param {string=} [template=NA] URL or id of a custom template for rendering each tag.
  * @param {string=} [templateScope=NA] Scope to be passed to custom templates - of both tagsInput and
  *    autoComplete directives - as $scope.
@@ -179,6 +180,10 @@ tagsInput.directive('tagsInput', ["$timeout", "$document", "$window", "$q", "tag
             self.index = -1;
         };
 
+        self.getItems = function() {
+            return options.useStrings ? self.items.map(getTagText): self.items;
+        };
+
         self.clearSelection();
 
         return self;
@@ -232,7 +237,8 @@ tagsInput.directive('tagsInput', ["$timeout", "$document", "$window", "$q", "tag
                 keyProperty: [String, ''],
                 allowLeftoverText: [Boolean, false],
                 addFromAutocompleteOnly: [Boolean, false],
-                spellcheck: [Boolean, true]
+                spellcheck: [Boolean, true],
+                useStrings: [Boolean, false]
             });
 
             $scope.tagList = new TagList($scope.options, $scope.events,
@@ -331,6 +337,10 @@ tagsInput.directive('tagsInput', ["$timeout", "$document", "$window", "$q", "tag
             scope.$watch('tags', function(value) {
                 if (value) {
                     tagList.items = tiUtil.makeObjectArray(value, options.displayProperty);
+                    if (options.useStrings) {
+                        return;
+                    }
+
                     scope.tags = tagList.items;
                 }
                 else {
@@ -407,7 +417,7 @@ tagsInput.directive('tagsInput', ["$timeout", "$document", "$window", "$q", "tag
                     scope.newTag.text('');
                 })
                 .on('tag-added tag-removed', function() {
-                    scope.tags = tagList.items;
+                    scope.tags = tagList.getItems();
                     // Ideally we should be able call $setViewValue here and let it in turn call $setDirty and $validate
                     // automatically, but since the model is an array, $setViewValue does nothing and it's up to us to do it.
                     // Unfortunately this won't trigger any registered $parser and there's no safe way to do it.
